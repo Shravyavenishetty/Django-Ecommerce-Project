@@ -3,7 +3,6 @@ from .forms import RegistrationForm
 from .models import Account
 from django.contrib import messages,auth
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
 
 # Verification email
 from django.contrib.sites.shortcuts import get_current_site
@@ -50,10 +49,10 @@ def register(request):
             send_email = EmailMessage(mail_subject, message, to=[to_email])
             send_email.send(fail_silently=False)
 
-            messages.success(request, 'Registration successful! Please check your email to activate your account.')
-            return redirect('register')
-        else:
-            messages.error(request, 'Invalid registration details.')
+            #messages.success(request, 'Registration successful! Please check your email to activate your account.')
+            return redirect('/accounts/login/?command=verification&email='+email)
+        #else:
+            #messages.error(request, 'Invalid registration details.')
     else:
         form = RegistrationForm()
     context = {'form': form}
@@ -85,4 +84,17 @@ def logout(request):
     return redirect('login')
 
 def activate(request,uidb64,token):
-    return HttpResponse('ok!')
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = Account._default_manager.get(pk=uid)
+    except(TypeError,ValueError,OverflowError, Account.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.save()
+        messages.success(request,'Congratulations! Your account is activated.')
+        return redirect('login')
+    else:
+        messages.error(request,'Invalid activation link')
+        return redirect('register')
